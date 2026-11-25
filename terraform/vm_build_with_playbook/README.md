@@ -2,7 +2,7 @@
 
 These files finish a VM build by running `launch_job.yml` against localhost. The playbook syncs the matching Ansible Automation Platform (AAP) inventory sources, then launches a job template limited to the new VM.
 
-Place `ansible_soe.tf` and `launch_job.yml` in the **same** Terraform configuration as `resource "vsphere_virtual_machine" "main"`. The playbook resource depends on that VM and builds the job limit from its name (`<name>.fqdn.tld`). It is not a standalone child module.
+Place `ansible_soe.tf` and `launch_job.yml` in the **same** Terraform configuration as a VM resource, like `resource "vsphere_virtual_machine" "main"`. The playbook resource depends on that VM and builds the job limit from its name (`<name>.fqdn.tld`). It is not a standalone child module.
 
 ## Prerequisites
 
@@ -25,7 +25,6 @@ terraform {
   }
 }
 
-# ansible_soe.tf and launch_job.yml live beside vsphere_virtual_machine.main
 ```
 
 ```hcl
@@ -37,6 +36,8 @@ job_template = "linux-config
 Set `launch_ansible_playbook = false` to create the VM without launching the playbook. Set `rerun_playbook = true` when a later apply should run the playbook again; the default is to run it once.
 
 Stdout is available as the `playbook_output` output when the playbook runs. It is `null` when `launch_ansible_playbook` is false.
+
+# Running manually for testing
 
 Run `launch_job.yml` on its own from this directory:
 
