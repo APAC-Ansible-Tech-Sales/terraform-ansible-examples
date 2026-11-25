@@ -1,0 +1,78 @@
+---
+- name: Update Dynamic Inventory and Launch Job Template
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ansible_connection: local
+
+  tasks:
+    - name: Assert variables
+      block:
+        - name: Assert variables
+          ansible.builtin.assert:
+            that:
+              - aap_host is defined and aap_host | string | trim | length > 0
+              - aap_username is defined and aap_username | string | trim | length > 0
+              - aap_password is defined and aap_password | string | trim | length > 0
+              - inventory is defined and inventory | string | trim | length > 0
+              - job_template is defined and job_template | string | trim | length > 0
+              - job_timeout is defined and job_timeout | string | trim | length > 0
+              - limit is defined and limit | string | trim | length > 0
+            fail_msg: "One or more variables are not defined or are empty"
+            success_msg: "All variables are defined and not empty"
+
+    - name: Sync inventory source and launch job template
+      block:
+        - name: Show VM configuration details
+          ansible.builtin.debug:
+            msg:
+              inventory: "{{ inventory }}"
+              job_template: "{{ job_template }}"
+              limit: "{{ limit }}"
+              job_timeout: "{{ job_timeout }}"
+
+        - name: Get inventory sources
+          # Use uri module to get inventory sources AAP is not supported by the awx.awx lookup plugin
+          ansible.builtin.uri:
+            url: "{{ aap_host }}/api/controller/v2/inventory_sources/?page_size=200"
+            url_username: "{{ aap_username }}"
+            url_password: "{{ aap_password }}"
+            force_basic_auth: true
+            validate_certs: true
+          register: inventory_sources_response
+
+        - name: Determine inventory source name
+          ansible.builtin.set_fact:
+            sources_data: "{{ inventory_sources_response.json.results | community.general.json_query(lookup_query) }}"
+          vars:
+            lookup_query: "[?summary_fields.inventory.name == '{{ inventory }}'].name"
+
+        - name: Assert inventory source name
+          ansible.builtin.assert:
+            that:
+              - sources_data is defined and sources_data | length > 0
+            fail_msg: "Inventory source name is not defined or is empty"
+            success_msg: "Inventory source name is defined and not empty"
+
+        - name: Loop through inventory sources and sync them
+          # Use awx collection as it's available on Galaxy
+          awx.awx.inventory_source_update:
+            controller_host: "{{ aap_host }}"
+            controller_username: "{{ aap_username }}"
+            controller_password: "{{ aap_password }}"
+            name: "{{ item }}"
+            inventory: "{{ inventory }}"
+            wait: true # Wait for the inventory source to be updated before launching the job template
+          loop: "{{ sources_data }}"
+
+        - name: Launch job template
+          # Use awx collection as it's available on Galaxy
+          awx.awx.job_launch:
+            controller_host: "{{ aap_host }}"
+            controller_username: "{{ aap_username }}"
+            controller_password: "{{ aap_password }}"
+            job_template: "{{ job_template }}"
+            inventory: "{{ inventory }}"
+            limit: "{{ limit }} "
+            job_timeout: "{{ job_timeout }}"
+            wait: true

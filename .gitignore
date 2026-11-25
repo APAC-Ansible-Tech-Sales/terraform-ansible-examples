@@ -1,0 +1,13 @@
+# Terraform
+.terraform
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+
+# Ansible
+.ansible
+.ansible.cfg
+.ansible.log
+.ansible.log.json
+.ansible.log.json.gz
+.ansible.log.json.gz.1
